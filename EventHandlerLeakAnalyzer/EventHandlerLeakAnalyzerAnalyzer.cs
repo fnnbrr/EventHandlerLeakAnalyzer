@@ -19,11 +19,11 @@ namespace EventHandlerLeakAnalyzer
         private static readonly DiagnosticDescriptor Rule = new DiagnosticDescriptor(
             id: DiagnosticId,
             title: "EventHandlerLeakAnalyzer",
-            messageFormat: "Message format for {0}",
-            category: "Naming",
+            messageFormat: "Event subscribed to but never unsubscribed from",
+            category: "Memory Leak",
             defaultSeverity: DiagnosticSeverity.Warning,
             isEnabledByDefault: true,
-            description: "Description here");
+            description: "Detects events that are never unsubscribed from");
 
         public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get { return ImmutableArray.Create(Rule); } }
 
@@ -55,7 +55,7 @@ namespace EventHandlerLeakAnalyzer
         }
         
         private static bool ContainsUnsubscription(SyntaxNodeAnalysisContext context, 
-            SyntaxNode subscribeAssignmentExpression, ISymbol subscribeEventSymbol)
+            AssignmentExpressionSyntax subscribeAssignmentExpression, ISymbol subscribeEventSymbol)
         {
             ISymbol containingType = context.ContainingSymbol.ContainingType;
             SemanticModel semanticModel = context.SemanticModel;
@@ -64,17 +64,19 @@ namespace EventHandlerLeakAnalyzer
             {
                 foreach (SyntaxNode syntaxNode in syntaxReference.GetSyntax().DescendantNodesAndSelf())
                 {
-                    if (!(syntaxNode is AssignmentExpressionSyntax assignmentExpression)) continue;
+                    // Check that this syntax node represents a -= assignment on an event class member
+                    if (!(syntaxNode is AssignmentExpressionSyntax assignmentExpression &&
+                        assignmentExpression.Left is MemberAccessExpressionSyntax identifier &&
+                        assignmentExpression.OperatorToken.Kind() == SyntaxKind.MinusEqualsToken &&
+                        semanticModel.GetSymbolInfo(identifier).Symbol is IEventSymbol eventSymbol)) continue;
                     
-                    if (!(assignmentExpression.Left is MemberAccessExpressionSyntax identifier)) continue;
-                    
-                    if (assignmentExpression.OperatorToken.Kind() != SyntaxKind.MinusEqualsToken) continue;
-                    
-                    if (!(semanticModel.GetSymbolInfo(identifier).Symbol is IEventSymbol eventSymbol)) continue;
-                    
+                    // Check that the sub and unsub event members are the same
                     if (!SymbolEqualityComparer.Default.Equals(eventSymbol, subscribeEventSymbol)) continue;
                     
-                    // TODO: check if the delegate on the right side is the same in sub and unsub
+                    // Check that the sub and unsub event responses are the same
+                    ISymbol subResponseSymbol = semanticModel.GetSymbolInfo(subscribeAssignmentExpression.Right).Symbol;
+                    ISymbol unsubResponseSymbol = semanticModel.GetSymbolInfo(assignmentExpression.Right).Symbol;
+                    if (!SymbolEqualityComparer.Default.Equals(subResponseSymbol, unsubResponseSymbol)) continue;
                     
                     return true;
                 }

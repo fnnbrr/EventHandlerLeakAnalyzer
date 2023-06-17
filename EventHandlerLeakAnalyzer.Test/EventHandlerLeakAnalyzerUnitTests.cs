@@ -11,7 +11,7 @@ namespace EventHandlerLeakAnalyzer.Test
     [TestClass]
     public class EventHandlerLeakAnalyzerUnitTest
     {
-        //No diagnostics expected to show up
+        // Shouldn't trigger a diagnostic (empty code)
         [TestMethod]
         public async Task TestMethod1()
         {
@@ -30,7 +30,7 @@ namespace EventHandlerLeakAnalyzer.Test
             await VerifyCS.VerifyAnalyzerAsync(test, expected);
         }
         
-        // Should trigger one diagnostic
+        // Shouldn't trigger a diagnostic (event unsubscribed from)
         [TestMethod]
         public async Task TestMethod3()
         {
@@ -38,10 +38,21 @@ namespace EventHandlerLeakAnalyzer.Test
             
             await VerifyCS.VerifyAnalyzerAsync(test);
         }
+        
+        // Should trigger one diagnostic
+        [TestMethod]
+        public async Task TestMethod4()
+        {
+            string test = await File.ReadAllTextAsync("../../../TestFiles/TestCode4.cs");
+            
+            DiagnosticResult expected = VerifyCS.Diagnostic(EventHandlerLeakAnalyzerAnalyzer.DiagnosticId).WithLocation(21, 13);
+            await VerifyCS.VerifyAnalyzerAsync(test, expected);
+        }
 
+        // TODO: work of this example to make a codefix
         //Diagnostic and CodeFix both triggered and checked for
         // [TestMethod]
-        public async Task TestMethod4()
+        public async Task ExampleTest()
         {
             var test = @"
     using System;
