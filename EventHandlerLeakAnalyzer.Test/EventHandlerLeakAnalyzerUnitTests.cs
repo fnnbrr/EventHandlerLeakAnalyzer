@@ -1,5 +1,7 @@
-﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
+﻿using System.IO;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.Threading.Tasks;
+using Microsoft.CodeAnalysis.Testing;
 using VerifyCS = EventHandlerLeakAnalyzer.Test.CSharpCodeFixVerifier<
     EventHandlerLeakAnalyzer.EventHandlerLeakAnalyzerAnalyzer,
     EventHandlerLeakAnalyzer.EventHandlerLeakAnalyzerCodeFixProvider>;
@@ -17,10 +19,29 @@ namespace EventHandlerLeakAnalyzer.Test
 
             await VerifyCS.VerifyAnalyzerAsync(test);
         }
-
-        //Diagnostic and CodeFix both triggered and checked for
+        
+        // Should trigger one diagnostic
         [TestMethod]
         public async Task TestMethod2()
+        {
+            string test = await File.ReadAllTextAsync("../../../TestFiles/TestCode2.cs");
+            
+            DiagnosticResult expected = VerifyCS.Diagnostic(EventHandlerLeakAnalyzerAnalyzer.DiagnosticId).WithLocation(15, 13);
+            await VerifyCS.VerifyAnalyzerAsync(test, expected);
+        }
+        
+        // Should trigger one diagnostic
+        [TestMethod]
+        public async Task TestMethod3()
+        {
+            string test = await File.ReadAllTextAsync("../../../TestFiles/TestCode3.cs");
+            
+            await VerifyCS.VerifyAnalyzerAsync(test);
+        }
+
+        //Diagnostic and CodeFix both triggered and checked for
+        // [TestMethod]
+        public async Task TestMethod4()
         {
             var test = @"
     using System;
